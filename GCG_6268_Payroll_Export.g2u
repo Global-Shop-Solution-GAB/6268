@@ -1,0 +1,73 @@
+Program.Sub.Preflight.Start
+
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+F.Intrinsic.Control.Try
+'TJS, Feb 2021
+'Mitchell Metal Products
+'Business Case:  The customer would like to export hours to a 3rd party software for payroll processing.
+
+F.Intrinsic.Control.If(V.Caller.Hook,=,15290)
+	F.Intrinsic.Control.CallSub(Data)
+F.Intrinsic.Control.EndIf 
+
+F.Intrinsic.Control.End
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Error,"SubRoutine",V.Ambient.CurrentSubroutine,"eNumber",V.Ambient.ErrorNumber,"eDescription",V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.Main.End
+
+Program.Sub.Data.Start
+F.Intrinsic.Control.Try
+V.Local.sRunTime.Declare
+V.Local.sRunDate.Declare
+V.Local.sSQL.Declare
+V.Local.sPath.Declare
+
+F.Intrinsic.String.Mid(V.Passed.888888.Trim,9,6,V.Local.sRunTime)
+F.Intrinsic.String.Left(V.Passed.888888.Trim,8,V.Local.sRunDate)
+
+'Summing regular and overtime into a single entry.
+F.Intrinsic.String.Build("Select A.EMPLOYEE,B.NAME,'eregular' as PAYITEM,Sum(CAST (A.HOURS as int)) as HOURS from PYRL_LABOR_XFER A left join EMPLOYEE_MSTR B on A.EMPLOYEE = B.EMPLOYEE where A.RUN_CYMD = '{0}' and A.RUN_TIME = '{1}' and TYPE in ('RT','OT') group by A.EMPLOYEE, B.NAME;",V.Local.sRunDate,V.Local.sRunTime,V.Local.sSQL)
+
+F.ODBC.Connection!conts.OpenCompanyConnection
+
+F.Data.DataTable.CreateFromSQL("dtPyrl","conts",V.Local.sSQL,True)
+
+F.ODBC.Connection!conts.Close
+
+'Saving CSV file
+F.Intrinsic.UI.ShowSaveFileDialog("","csv|*.csv",V.Local.sPath)
+
+F.Intrinsic.Control.If(V.Local.sPath.Trim,=,"***CANCEL***")
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.EndIf
+
+F.Intrinsic.String.Split(V.Local.sPath,".",V.Local.sPath)
+
+F.Intrinsic.String.Build("{0}.csv",V.Local.sPath(0),V.Local.sPath)
+
+F.Data.DataTable.SaveToCSV("dtPyrl",V.Local.sPath,False)
+
+F.Intrinsic.String.Build("File saved to {0}",V.Local.sPath.Trim,V.Local.sSQL)
+
+F.Intrinsic.UI.Msgbox(V.Local.sSQL,"Success!")
+
+F.Data.DataTable.Close("dtPyrl")
+
+F.Intrinsic.Control.Catch
+	F.Intrinsic.Control.CallSub(Error,"SubRoutine",V.Ambient.CurrentSubroutine,"eNumber",V.Ambient.ErrorNumber,"eDescription",V.Ambient.ErrorDescription)
+F.Intrinsic.Control.EndTry
+Program.Sub.Data.End
+
+Program.Sub.Error.Start
+V.Local.sError.Declare
+V.Local.iRet.Declare
+V.Local.sSep.Declare
+
+F.Intrinsic.String.Build("-------------------------------------------------------------------------------------",,V.Local.sSep)
+F.Intrinsic.String.Build("({5}-{6}){0}{7}{0}Project: {4}{0}{7}{0}Sub: {1}{0}Error: {2}, {3}", V.Ambient.NewLine, V.Args.SubRoutine, V.Args.eNumber, V.Args.eDescription,V.Caller.ScriptFile,V.Ambient.Date, V.Ambient.Time,V.Local.sSep,V.Local.sError)
+F.Intrinsic.UI.Msgbox(V.Local.sError,"Error",V.Local.iRet)
+Program.Sub.Error.End
